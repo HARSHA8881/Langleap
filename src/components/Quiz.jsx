@@ -1,118 +1,92 @@
 import React, { useState, useEffect } from 'react'
-import { Brain, Clock, CheckCircle, XCircle, RotateCcw, Trophy, ArrowRight } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Brain, CheckCircle, XCircle, RotateCcw, ArrowRight, Loader } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import '../styles/components/Quiz.css'
 
-// Mock quiz data - in real app, this would come from an API
+// Simple quiz questions - no difficulty levels
 const quizQuestions = [
   {
     id: 1,
     question: "What does 'hola' mean in English?",
     options: ['goodbye', 'hello', 'please', 'thank you'],
-    correct: 1,
-    difficulty: 'beginner'
+    correct: 1
   },
   {
     id: 2,
     question: "How do you say 'thank you' in Spanish?",
     options: ['por favor', 'de nada', 'gracias', 'perdón'],
-    correct: 2,
-    difficulty: 'beginner'
+    correct: 2
   },
   {
     id: 3,
     question: "What does 'casa' mean?",
     options: ['car', 'house', 'food', 'work'],
-    correct: 1,
-    difficulty: 'beginner'
+    correct: 1
   },
   {
     id: 4,
     question: "Which word means 'family'?",
     options: ['amigo', 'trabajo', 'familia', 'escuela'],
-    correct: 2,
-    difficulty: 'beginner'
+    correct: 2
   },
   {
     id: 5,
     question: "How do you say 'good morning'?",
     options: ['buenas noches', 'buenos días', 'buenas tardes', 'hasta luego'],
-    correct: 1,
-    difficulty: 'intermediate'
-  },
-  {
-    id: 6,
-    question: "What does 'trabajar' mean?",
-    options: ['to eat', 'to work', 'to sleep', 'to study'],
-    correct: 1,
-    difficulty: 'intermediate'
-  },
-  {
-    id: 7,
-    question: "Which phrase means 'I am hungry'?",
-    options: ['Tengo sed', 'Tengo hambre', 'Tengo frío', 'Tengo calor'],
-    correct: 1,
-    difficulty: 'intermediate'
-  },
-  {
-    id: 8,
-    question: "What is the correct conjugation: 'Yo _____ español'?",
-    options: ['hablas', 'habla', 'hablo', 'hablan'],
-    correct: 2,
-    difficulty: 'advanced'
+    correct: 1
   }
 ]
 
-const QUIZ_TIME_LIMIT = 300 // 5 minutes in seconds
-
 function Quiz() {
-  const { state, dispatch } = useApp()
+  const { user, isAuthenticated, isLoading, settings, quizHistory, dispatch } = useApp()
+  const navigate = useNavigate()
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState(null)
   const [answers, setAnswers] = useState([])
-  const [showResult, setShowResult] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(QUIZ_TIME_LIMIT)
   const [quizStarted, setQuizStarted] = useState(false)
   const [quizCompleted, setQuizCompleted] = useState(false)
   const [score, setScore] = useState(0)
-  const [questions, setQuestions] = useState([])
 
+  // Redirect to account if not authenticated
   useEffect(() => {
-    // Filter questions based on user's difficulty level
-    const userLevel = state.settings.difficulty
-    let filteredQuestions = quizQuestions
-
-    if (userLevel === 'beginner') {
-      filteredQuestions = quizQuestions.filter(q => q.difficulty === 'beginner').slice(0, 5)
-    } else if (userLevel === 'intermediate') {
-      filteredQuestions = quizQuestions.filter(q => 
-        q.difficulty === 'beginner' || q.difficulty === 'intermediate'
-      ).slice(0, 6)
-    } else {
-      filteredQuestions = quizQuestions.slice(0, 8)
+    if (!isLoading && !isAuthenticated) {
+      console.log('User not authenticated, redirecting to login')
+      navigate('/account')
     }
+  }, [isAuthenticated, isLoading, navigate])
 
-    setQuestions(filteredQuestions)
-  }, [state.settings.difficulty])
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="quiz-page">
+        <div className="quiz-container">
+          <div className="loading-container">
+            <Loader size={48} className="spinner" />
+            <p>Loading quiz...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
-  // Timer effect
-  useEffect(() => {
-    if (quizStarted && !quizCompleted && timeLeft > 0) {
-      const timer = setTimeout(() => {
-        setTimeLeft(timeLeft - 1)
-      }, 1000)
-      return () => clearTimeout(timer)
-    } else if (timeLeft === 0 && !quizCompleted) {
-      handleQuizComplete()
-    }
-  }, [timeLeft, quizStarted, quizCompleted])
+  // If user is not authenticated, show message
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="quiz-page">
+        <div className="simple-message">
+          <p>Please log in to take a quiz!</p>
+          <Link to="/account" className="btn-primary">Go to Login</Link>
+        </div>
+      </div>
+    )
+  }
 
   const startQuiz = () => {
     setQuizStarted(true)
     setCurrentQuestion(0)
     setAnswers([])
-    setShowResult(false)
     setQuizCompleted(false)
-    setTimeLeft(QUIZ_TIME_LIMIT)
   }
 
   const handleAnswerSelect = (answerIndex) => {
@@ -124,7 +98,7 @@ function Quiz() {
     setAnswers(newAnswers)
     setSelectedAnswer(null)
 
-    if (currentQuestion < questions.length - 1) {
+    if (currentQuestion < quizQuestions.length - 1) {
       setCurrentQuestion(currentQuestion + 1)
     } else {
       handleQuizComplete(newAnswers)
@@ -136,23 +110,21 @@ function Quiz() {
     
     // Calculate score
     let correctAnswers = 0
-    questions.forEach((question, index) => {
+    quizQuestions.forEach((question, index) => {
       if (finalAnswers[index] === question.correct) {
         correctAnswers++
       }
     })
 
-    const finalScore = Math.round((correctAnswers / questions.length) * 100)
+    const finalScore = Math.round((correctAnswers / quizQuestions.length) * 100)
     setScore(finalScore)
 
     // Save quiz result
     const quizResult = {
       score: finalScore,
-      questions: questions.length,
+      questions: quizQuestions.length,
       correctAnswers,
-      completedAt: new Date().toISOString(),
-      timeSpent: QUIZ_TIME_LIMIT - timeLeft,
-      difficulty: state.settings.difficulty
+      completedAt: new Date().toISOString()
     }
 
     dispatch({ type: 'ADD_QUIZ_RESULT', payload: quizResult })
@@ -162,23 +134,13 @@ function Quiz() {
     setCurrentQuestion(0)
     setSelectedAnswer(null)
     setAnswers([])
-    setShowResult(false)
     setQuizStarted(false)
     setQuizCompleted(false)
-    setTimeLeft(QUIZ_TIME_LIMIT)
-  }
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
   const getScoreMessage = (score) => {
-    if (score >= 90) return { message: "Excellent! You're mastering the language!", icon: "🌟" }
     if (score >= 80) return { message: "Great job! You're doing very well!", icon: "🎉" }
-    if (score >= 70) return { message: "Good work! Keep practicing!", icon: "👍" }
-    if (score >= 60) return { message: "Not bad! Review and try again!", icon: "📚" }
+    if (score >= 60) return { message: "Good work! Keep practicing!", icon: "👍" }
     return { message: "Keep studying! You'll improve with practice!", icon: "💪" }
   }
 
@@ -190,42 +152,24 @@ function Quiz() {
             <div className="quiz-header">
               <Brain size={64} className="quiz-icon" />
               <h1>Ready for a Quiz?</h1>
-              <p>Test your {state.settings.targetLanguage} knowledge and track your progress</p>
+              <p>Test your {settings.targetLanguage} knowledge</p>
             </div>
 
             <div className="quiz-info">
               <div className="info-item">
-                <Clock size={24} />
-                <div>
-                  <strong>Time Limit</strong>
-                  <span>{formatTime(QUIZ_TIME_LIMIT)}</span>
-                </div>
-              </div>
-              
-              <div className="info-item">
                 <Brain size={24} />
                 <div>
                   <strong>Questions</strong>
-                  <span>{questions.length} questions</span>
-                </div>
-              </div>
-              
-              <div className="info-item">
-                <Trophy size={24} />
-                <div>
-                  <strong>Difficulty</strong>
-                  <span className={`difficulty-badge ${state.settings.difficulty}`}>
-                    {state.settings.difficulty}
-                  </span>
+                  <span>{quizQuestions.length} questions</span>
                 </div>
               </div>
             </div>
 
-            {state.quizHistory.length > 0 && (
+            {quizHistory.length > 0 && (
               <div className="recent-scores">
                 <h3>Your Recent Scores</h3>
                 <div className="scores-list">
-                  {state.quizHistory.slice(-3).reverse().map((quiz, index) => (
+                  {quizHistory.slice(-3).reverse().map((quiz, index) => (
                     <div key={index} className="score-item">
                       <span className={`score ${quiz.score >= 80 ? 'good' : quiz.score >= 60 ? 'average' : 'needs-improvement'}`}>
                         {quiz.score}%
@@ -267,52 +211,13 @@ function Quiz() {
             <div className="results-stats">
               <div className="stat">
                 <CheckCircle className="stat-icon correct" />
-                <span>{answers.filter((ans, i) => ans === questions[i]?.correct).length} Correct</span>
+                <span>{answers.filter((ans, i) => ans === quizQuestions[i]?.correct).length} Correct</span>
               </div>
               
               <div className="stat">
                 <XCircle className="stat-icon incorrect" />
-                <span>{questions.length - answers.filter((ans, i) => ans === questions[i]?.correct).length} Incorrect</span>
+                <span>{quizQuestions.length - answers.filter((ans, i) => ans === quizQuestions[i]?.correct).length} Incorrect</span>
               </div>
-              
-              <div className="stat">
-                <Clock className="stat-icon" />
-                <span>{formatTime(QUIZ_TIME_LIMIT - timeLeft)} Used</span>
-              </div>
-            </div>
-
-            <div className="question-review">
-              <h3>Review Your Answers</h3>
-              {questions.map((question, index) => {
-                const userAnswer = answers[index]
-                const isCorrect = userAnswer === question.correct
-                
-                return (
-                  <div key={question.id} className={`review-item ${isCorrect ? 'correct' : 'incorrect'}`}>
-                    <div className="question-info">
-                      <span className="question-number">Q{index + 1}</span>
-                      <span className="question-text">{question.question}</span>
-                      {isCorrect ? <CheckCircle size={20} className="result-icon correct" /> : <XCircle size={20} className="result-icon incorrect" />}
-                    </div>
-                    
-                    <div className="answer-info">
-                      <div className="user-answer">
-                        Your answer: <span className={isCorrect ? 'correct-text' : 'incorrect-text'}>
-                          {question.options[userAnswer] || 'No answer'}
-                        </span>
-                      </div>
-                      
-                      {!isCorrect && (
-                        <div className="correct-answer">
-                          Correct answer: <span className="correct-text">
-                            {question.options[question.correct]}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
             </div>
 
             <div className="results-actions">
@@ -323,7 +228,7 @@ function Quiz() {
               
               <button 
                 className="btn-primary"
-                onClick={() => window.location.href = '/dashboard'}
+                onClick={() => navigate('/dashboard')}
               >
                 Back to Dashboard
                 <ArrowRight size={20} />
@@ -335,8 +240,8 @@ function Quiz() {
     )
   }
 
-  const currentQ = questions[currentQuestion]
-  const progress = ((currentQuestion + 1) / questions.length) * 100
+  const currentQ = quizQuestions[currentQuestion]
+  const progress = ((currentQuestion + 1) / quizQuestions.length) * 100
 
   return (
     <div className="quiz-page">
@@ -344,8 +249,7 @@ function Quiz() {
         <div className="quiz-header-active">
           <div className="quiz-progress">
             <div className="progress-info">
-              <span>Question {currentQuestion + 1} of {questions.length}</span>
-              <span className="timer">{formatTime(timeLeft)}</span>
+              <span>Question {currentQuestion + 1} of {quizQuestions.length}</span>
             </div>
             <div className="progress-bar">
               <div className="progress-fill" style={{ width: `${progress}%` }}></div>
@@ -377,7 +281,7 @@ function Quiz() {
               onClick={handleNextQuestion}
               disabled={selectedAnswer === null}
             >
-              {currentQuestion < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
+              {currentQuestion < quizQuestions.length - 1 ? 'Next Question' : 'Finish Quiz'}
               <ArrowRight size={20} />
             </button>
           </div>

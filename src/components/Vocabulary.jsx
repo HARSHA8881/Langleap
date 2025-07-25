@@ -1,91 +1,177 @@
 import React, { useState, useEffect } from 'react'
-import { Search, Plus, BookOpen, Volume2, Heart, Star, Filter } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Search, Plus, BookOpen, Check, Volume2, Loader } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import '../styles/components/Vocabulary.css'
 
-// Mock vocabulary data - in real app, this would come from an API
+// Expanded vocabulary data with categories
 const mockVocabulary = [
-  { id: 1, word: 'hola', translation: 'hello', language: 'spanish', category: 'greetings', difficulty: 'beginner', example: 'Hola, ¿cómo estás?', pronunciation: 'OH-lah' },
-  { id: 2, word: 'gracias', translation: 'thank you', language: 'spanish', category: 'courtesy', difficulty: 'beginner', example: 'Gracias por tu ayuda.', pronunciation: 'GRAH-see-ahs' },
-  { id: 3, word: 'casa', translation: 'house', language: 'spanish', category: 'home', difficulty: 'beginner', example: 'Mi casa es grande.', pronunciation: 'KAH-sah' },
-  { id: 4, word: 'comida', translation: 'food', language: 'spanish', category: 'food', difficulty: 'beginner', example: 'La comida está deliciosa.', pronunciation: 'koh-MEE-dah' },
-  { id: 5, word: 'familia', translation: 'family', language: 'spanish', category: 'people', difficulty: 'beginner', example: 'Mi familia es muy grande.', pronunciation: 'fah-MEE-lee-ah' },
-  { id: 6, word: 'trabajo', translation: 'work/job', language: 'spanish', category: 'work', difficulty: 'intermediate', example: 'Voy al trabajo temprano.', pronunciation: 'trah-BAH-hoh' },
-  { id: 7, word: 'amigo', translation: 'friend', language: 'spanish', category: 'people', difficulty: 'beginner', example: 'Él es mi mejor amigo.', pronunciation: 'ah-MEE-goh' },
-  { id: 8, word: 'escuela', translation: 'school', language: 'spanish', category: 'education', difficulty: 'beginner', example: 'Los niños van a la escuela.', pronunciation: 'es-KWAY-lah' }
+  // Greetings
+  { id: 1, word: 'hola', translation: 'hello', category: 'greetings' },
+  { id: 2, word: 'adiós', translation: 'goodbye', category: 'greetings' },
+  { id: 3, word: 'buenos días', translation: 'good morning', category: 'greetings' },
+  { id: 4, word: 'buenas noches', translation: 'good night', category: 'greetings' },
+  
+  // Courtesy
+  { id: 5, word: 'gracias', translation: 'thank you', category: 'courtesy' },
+  { id: 6, word: 'por favor', translation: 'please', category: 'courtesy' },
+  { id: 7, word: 'perdón', translation: 'excuse me', category: 'courtesy' },
+  { id: 8, word: 'de nada', translation: 'you\'re welcome', category: 'courtesy' },
+  
+  // Family & People
+  { id: 9, word: 'familia', translation: 'family', category: 'people' },
+  { id: 10, word: 'amigo', translation: 'friend', category: 'people' },
+  { id: 11, word: 'madre', translation: 'mother', category: 'people' },
+  { id: 12, word: 'padre', translation: 'father', category: 'people' },
+  { id: 13, word: 'hermano', translation: 'brother', category: 'people' },
+  { id: 14, word: 'hermana', translation: 'sister', category: 'people' },
+  
+  // Home & Places
+  { id: 15, word: 'casa', translation: 'house', category: 'places' },
+  { id: 16, word: 'escuela', translation: 'school', category: 'places' },
+  { id: 17, word: 'trabajo', translation: 'work/job', category: 'places' },
+  { id: 18, word: 'tienda', translation: 'store', category: 'places' },
+  
+  // Food
+  { id: 19, word: 'comida', translation: 'food', category: 'food' },
+  { id: 20, word: 'agua', translation: 'water', category: 'food' },
+  { id: 21, word: 'pan', translation: 'bread', category: 'food' },
+  { id: 22, word: 'leche', translation: 'milk', category: 'food' },
+  
+  // Basic verbs
+  { id: 23, word: 'hablar', translation: 'to speak', category: 'verbs' },
+  { id: 24, word: 'comer', translation: 'to eat', category: 'verbs' },
+  { id: 25, word: 'dormir', translation: 'to sleep', category: 'verbs' },
+  { id: 26, word: 'estudiar', translation: 'to study', category: 'verbs' }
 ]
 
-const categories = ['all', 'greetings', 'courtesy', 'home', 'food', 'people', 'work', 'education']
-const difficulties = ['all', 'beginner', 'intermediate', 'advanced']
+const categories = ['all', 'greetings', 'courtesy', 'people', 'places', 'food', 'verbs']
 
 function Vocabulary() {
-  const { state, dispatch } = useApp()
+  const { user, isAuthenticated, isLoading, vocabulary, learnedWords, settings, dispatch } = useApp()
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
-  const [selectedDifficulty, setSelectedDifficulty] = useState('all')
-  const [vocabulary, setVocabulary] = useState([])
-  const [favorites, setFavorites] = useState([])
+  const [allVocabulary, setAllVocabulary] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newWord, setNewWord] = useState({ word: '', translation: '', category: 'greetings', example: '' })
+  const [newWord, setNewWord] = useState({ word: '', translation: '', category: 'greetings' })
+
+  // Redirect to account if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      console.log('User not authenticated, redirecting to login')
+      navigate('/account')
+    }
+  }, [isAuthenticated, isLoading, navigate])
 
   useEffect(() => {
-    // In a real app, this would fetch from an API
-    setVocabulary([...mockVocabulary, ...state.vocabulary])
-  }, [state.vocabulary])
+    setAllVocabulary([...mockVocabulary, ...vocabulary])
+  }, [vocabulary])
 
-  const filteredVocabulary = vocabulary.filter(item => {
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="vocabulary-page">
+        <div className="vocabulary-container">
+          <div className="loading-container">
+            <Loader size={48} className="spinner" />
+            <p>Loading vocabulary...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // If user is not authenticated, show message
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="vocabulary-page">
+        <div className="simple-message">
+          <p>Please log in to access vocabulary!</p>
+          <Link to="/account" className="btn-primary">Go to Login</Link>
+        </div>
+      </div>
+    )
+  }
+
+  const filteredVocabulary = allVocabulary.filter(item => {
     const matchesSearch = item.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.translation.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory
-    const matchesDifficulty = selectedDifficulty === 'all' || item.difficulty === selectedDifficulty
-    
-    return matchesSearch && matchesCategory && matchesDifficulty
+    return matchesSearch && matchesCategory
   })
 
   const handleAddWord = (e) => {
     e.preventDefault()
+    if (!newWord.word || !newWord.translation) return
+    
     const word = {
       id: Date.now(),
-      ...newWord,
-      language: state.settings.targetLanguage,
-      difficulty: 'beginner',
-      pronunciation: ''
+      word: newWord.word,
+      translation: newWord.translation,
+      category: newWord.category
     }
     
     dispatch({ type: 'ADD_VOCABULARY', payload: word })
-    setNewWord({ word: '', translation: '', category: 'greetings', example: '' })
+    setNewWord({ word: '', translation: '', category: 'greetings' })
     setShowAddForm(false)
   }
 
-  const toggleFavorite = (wordId) => {
-    setFavorites(prev => 
-      prev.includes(wordId) 
-        ? prev.filter(id => id !== wordId)
-        : [...prev, wordId]
-    )
+  const toggleLearned = (wordId) => {
+    dispatch({ type: 'TOGGLE_LEARNED_WORD', payload: wordId })
   }
 
   const speakWord = (word) => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(word)
-      utterance.lang = state.settings.targetLanguage === 'spanish' ? 'es-ES' : 'en-US'
+      utterance.lang = settings.targetLanguage === 'spanish' ? 'es-ES' : 'en-US'
       speechSynthesis.speak(utterance)
     }
   }
+
+  const groupedByCategory = categories.slice(1).reduce((acc, category) => {
+    acc[category] = filteredVocabulary.filter(word => word.category === category)
+    return acc
+  }, {})
 
   return (
     <div className="vocabulary-page">
       <div className="vocabulary-container">
         {/* Header */}
         <div className="vocabulary-header">
-          <div className="header-content">
-            <h1>Vocabulary</h1>
-            <p>Expand your {state.settings.targetLanguage} vocabulary</p>
-            <div className="vocab-stats">
-              <span>{filteredVocabulary.length} words available</span>
-              <span>•</span>
-              <span>{state.progress.totalWordsLearned} learned</span>
-            </div>
+          <h1>Vocabulary</h1>
+          <p>Learn {settings.targetLanguage} words</p>
+          <div className="vocab-stats">
+            <span>{filteredVocabulary.length} words available</span>
+            <span>•</span>
+            <span>{learnedWords.size} learned</span>
           </div>
+        </div>
+
+        {/* Controls */}
+        <div className="vocabulary-controls">
+          <div className="search-input">
+            <Search size={20} />
+            <input
+              type="text"
+              placeholder="Search words..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="category-select"
+          >
+            {categories.map(cat => (
+              <option key={cat} value={cat}>
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </option>
+            ))}
+          </select>
+
           <button 
             className="add-word-btn"
             onClick={() => setShowAddForm(true)}
@@ -95,148 +181,111 @@ function Vocabulary() {
           </button>
         </div>
 
-        {/* Search and Filters */}
-        <div className="vocabulary-controls">
-          <div className="search-section">
-            <div className="search-input">
-              <Search size={20} />
-              <input
-                type="text"
-                placeholder="Search words or translations..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="filters-section">
-            <div className="filter-group">
-              <Filter size={16} />
-              <select 
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-              >
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <select 
-                value={selectedDifficulty}
-                onChange={(e) => setSelectedDifficulty(e.target.value)}
-              >
-                {difficulties.map(diff => (
-                  <option key={diff} value={diff}>
-                    {diff.charAt(0).toUpperCase() + diff.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Vocabulary Grid */}
-        <div className="vocabulary-grid">
-          {filteredVocabulary.map(item => (
-            <div key={item.id} className="vocabulary-card">
-              <div className="card-header">
-                <div className="word-info">
-                  <h3 className="word">{item.word}</h3>
-                  <p className="translation">{item.translation}</p>
-                </div>
-                <div className="card-actions">
-                  <button 
-                    className="action-btn"
-                    onClick={() => speakWord(item.word)}
-                    title="Pronounce word"
-                  >
-                    <Volume2 size={16} />
-                  </button>
-                  <button 
-                    className={`action-btn ${favorites.includes(item.id) ? 'favorited' : ''}`}
-                    onClick={() => toggleFavorite(item.id)}
-                    title="Add to favorites"
-                  >
-                    <Heart size={16} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="card-details">
-                <div className="pronunciation">
-                  {item.pronunciation && (
-                    <span className="pronunciation-text">/{item.pronunciation}/</span>
-                  )}
-                </div>
-                
-                <div className="meta-info">
-                  <span className={`difficulty-badge ${item.difficulty}`}>
-                    {item.difficulty}
-                  </span>
-                  <span className="category-badge">
-                    {item.category}
-                  </span>
-                </div>
-
-                {item.example && (
-                  <div className="example">
-                    <strong>Example:</strong> {item.example}
+        {/* Word Grid */}
+        {selectedCategory === 'all' ? (
+          // Show by categories
+          <div className="vocabulary-sections">
+            {Object.entries(groupedByCategory).map(([category, words]) => (
+              words.length > 0 && (
+                <div key={category} className="vocabulary-section">
+                  <h3 className="section-title">{category.charAt(0).toUpperCase() + category.slice(1)}</h3>
+                  <div className="vocabulary-grid">
+                    {words.map(item => (
+                      <div key={item.id} className={`vocabulary-card ${learnedWords.has(item.id) ? 'learned' : ''}`}>
+                        <div className="card-content">
+                          <div className="word-pair">
+                            <div className="word">{item.word}</div>
+                            <div className="translation">{item.translation}</div>
+                          </div>
+                          <div className="card-actions">
+                            <button
+                              className="action-btn"
+                              onClick={() => speakWord(item.word)}
+                              title="Pronounce"
+                            >
+                              <Volume2 size={16} />
+                            </button>
+                            <button
+                              className={`action-btn learned-btn ${learnedWords.has(item.id) ? 'active' : ''}`}
+                              onClick={() => toggleLearned(item.id)}
+                              title="Mark as learned"
+                            >
+                              <Check size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )
+            ))}
+          </div>
+        ) : (
+          // Show filtered results
+          <div className="vocabulary-grid">
+            {filteredVocabulary.map(item => (
+              <div key={item.id} className={`vocabulary-card ${learnedWords.has(item.id) ? 'learned' : ''}`}>
+                <div className="card-content">
+                  <div className="word-pair">
+                    <div className="word">{item.word}</div>
+                    <div className="translation">{item.translation}</div>
+                  </div>
+                  <div className="card-actions">
+                    <button
+                      className="action-btn"
+                      onClick={() => speakWord(item.word)}
+                      title="Pronounce"
+                    >
+                      <Volume2 size={16} />
+                    </button>
+                    <button
+                      className={`action-btn learned-btn ${learnedWords.has(item.id) ? 'active' : ''}`}
+                      onClick={() => toggleLearned(item.id)}
+                      title="Mark as learned"
+                    >
+                      <Check size={16} />
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {filteredVocabulary.length === 0 && (
           <div className="no-results">
             <BookOpen size={48} />
-            <h3>No words found</h3>
-            <p>Try adjusting your search terms or filters</p>
+            <p>No words found</p>
           </div>
         )}
 
-        {/* Add Word Modal */}
+        {/* Improved Add Word Form */}
         {showAddForm && (
           <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Add New Word</h2>
-                <button 
-                  className="modal-close"
-                  onClick={() => setShowAddForm(false)}
-                >
-                  ×
-                </button>
-              </div>
-
+              <h2>Add New Word</h2>
               <form onSubmit={handleAddWord}>
                 <div className="form-group">
-                  <label>Word ({state.settings.targetLanguage})</label>
+                  <label>Word ({settings.targetLanguage})</label>
                   <input
                     type="text"
                     value={newWord.word}
                     onChange={(e) => setNewWord({...newWord, word: e.target.value})}
+                    placeholder="Enter word"
                     required
-                    placeholder="Enter the word"
                   />
                 </div>
-
                 <div className="form-group">
-                  <label>Translation ({state.settings.nativeLanguage})</label>
+                  <label>Translation</label>
                   <input
                     type="text"
                     value={newWord.translation}
                     onChange={(e) => setNewWord({...newWord, translation: e.target.value})}
+                    placeholder="Enter translation"
                     required
-                    placeholder="Enter the translation"
                   />
                 </div>
-
                 <div className="form-group">
                   <label>Category</label>
                   <select
@@ -250,23 +299,8 @@ function Vocabulary() {
                     ))}
                   </select>
                 </div>
-
-                <div className="form-group">
-                  <label>Example (optional)</label>
-                  <input
-                    type="text"
-                    value={newWord.example}
-                    onChange={(e) => setNewWord({...newWord, example: e.target.value})}
-                    placeholder="Example sentence"
-                  />
-                </div>
-
                 <div className="modal-actions">
-                  <button 
-                    type="button" 
-                    className="btn-secondary"
-                    onClick={() => setShowAddForm(false)}
-                  >
+                  <button type="button" onClick={() => setShowAddForm(false)}>
                     Cancel
                   </button>
                   <button type="submit" className="btn-primary">

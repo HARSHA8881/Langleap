@@ -7,9 +7,8 @@ import Account from './components/Account'
 import Dashboard from './components/Dashboard'
 import Vocabulary from './components/Vocabulary'
 import Quiz from './components/Quiz'
-import Progress from './components/Progress'
 import Settings from './components/Settings'
-import './App.css'
+import './styles/global.css'
 
 function App() {
   return (
@@ -24,7 +23,6 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/vocabulary" element={<Vocabulary />} />
               <Route path="/quiz" element={<Quiz />} />
-              <Route path="/progress" element={<Progress />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

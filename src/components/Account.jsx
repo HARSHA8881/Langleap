@@ -1,12 +1,16 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User, Mail, Lock, LogOut, BookOpen, Brain } from 'lucide-react'
+import { User, Mail, Lock, LogOut, Loader } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import '../styles/components/Account.css'
 
 function Account() {
-  const { state, dispatch } = useApp()
+  const { user, isAuthenticated, isLoading, login, logout } = useApp()
   const navigate = useNavigate()
   const [isLogin, setIsLogin] = useState(true)
+  const [formLoading, setFormLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -14,40 +18,114 @@ function Account() {
     confirmPassword: ''
   })
 
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (isAuthenticated && user && !isLoading) {
+      console.log('User is authenticated, redirecting to dashboard')
+      navigate('/dashboard')
+    }
+  }, [isAuthenticated, user, isLoading, navigate])
+
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="account-page">
+        <div className="account-container">
+          <div className="loading-container">
+            <Loader size={48} className="spinner" />
+            <p>Loading...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const handleInputChange = (e) => {
+    setError('')
+    setSuccess('')
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     })
   }
 
-  const handleSubmit = (e) => {
+  const validateForm = () => {
+    if (!formData.email || !formData.password) {
+      setError('Email and password are required')
+      return false
+    }
+
+    if (!isLogin) {
+      if (!formData.name) {
+        setError('Name is required for signup')
+        return false
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match')
+        return false
+      }
+      if (formData.password.length < 6) {
+        setError('Password must be at least 6 characters')
+        return false
+      }
+    }
+
+    return true
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!isLogin && formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!')
-      return
-    }
+    if (!validateForm()) return
 
-    // Mock authentication - in real app, this would call an API
-    const user = {
-      id: Date.now(),
-      name: formData.name || formData.email.split('@')[0],
-      email: formData.email,
-      joinedAt: new Date().toISOString()
-    }
+    setFormLoading(true)
+    setError('')
+    setSuccess('')
 
-    dispatch({ type: 'SET_USER', payload: user })
-    navigate('/dashboard')
+    try {
+      console.log(`Attempting ${isLogin ? 'login' : 'signup'}...`)
+      
+      const result = await login(
+        formData.email, 
+        formData.password, 
+        isLogin ? null : formData.name
+      )
+
+      if (result.success) {
+        setSuccess(`${isLogin ? 'Login' : 'Signup'} successful! Redirecting...`)
+        console.log('Authentication successful, will redirect to dashboard')
+        
+        // Navigation will happen via useEffect when isAuthenticated becomes true
+        
+      } else {
+        setError(result.error || 'Authentication failed')
+        console.error('Authentication failed:', result.error)
+      }
+    } catch (error) {
+      setError('An unexpected error occurred')
+      console.error('Authentication error:', error)
+    } finally {
+      setFormLoading(false)
+    }
   }
 
   const handleLogout = () => {
-    dispatch({ type: 'LOGOUT' })
+    console.log('Logging out...')
+    logout()
+    setFormData({ name: '', email: '', password: '', confirmPassword: '' })
+    setError('')
+    setSuccess('Logged out successfully')
+  }
+
+  const switchMode = () => {
+    setIsLogin(!isLogin)
+    setError('')
+    setSuccess('')
     setFormData({ name: '', email: '', password: '', confirmPassword: '' })
   }
 
-  // If user is already logged in, show profile
-  if (state.user) {
+  // If user is authenticated, show profile
+  if (isAuthenticated && user) {
     return (
       <div className="account-page">
         <div className="account-container">
@@ -57,76 +135,23 @@ function Account() {
                 <User size={80} />
               </div>
               <div className="profile-info">
-                <h1>{state.user.name}</h1>
-                <p className="email">{state.user.email}</p>
+                <h1>{user.name}</h1>
+                <p className="email">{user.email}</p>
                 <p className="join-date">
-                  Member since {new Date(state.user.joinedAt).toLocaleDateString()}
+                  Member since {new Date(user.joinedAt).toLocaleDateString()}
                 </p>
               </div>
             </div>
 
-            <div className="profile-stats">
-              <div className="stat-card">
-                <h3>{state.progress.totalWordsLearned}</h3>
-                <p>Words Learned</p>
-              </div>
-              <div className="stat-card">
-                <h3>{state.progress.points}</h3>
-                <p>Total Points</p>
-              </div>
-              <div className="stat-card">
-                <h3>{state.progress.streak}</h3>
-                <p>Current Streak</p>
-              </div>
-              <div className="stat-card">
-                <h3>Level {state.progress.currentLevel}</h3>
-                <p>Current Level</p>
-              </div>
-            </div>
-
             <div className="profile-actions">
-              <button className="btn-secondary">Edit Profile</button>
               <button 
                 className="btn-danger"
                 onClick={handleLogout}
+                disabled={formLoading}
               >
                 <LogOut size={20} />
                 Logout
               </button>
-            </div>
-          </div>
-
-          <div className="achievements-section">
-            <h2>Achievements</h2>
-            <div className="achievements-grid">
-              <div className="achievement-item earned">
-                <div className="achievement-icon">🎯</div>
-                <div className="achievement-info">
-                  <h3>First Steps</h3>
-                  <p>Completed your first quiz</p>
-                </div>
-              </div>
-              <div className="achievement-item">
-                <div className="achievement-icon">🔥</div>
-                <div className="achievement-info">
-                  <h3>On Fire</h3>
-                  <p>Maintain a 7-day streak</p>
-                </div>
-              </div>
-              <div className="achievement-item">
-                <div className="achievement-icon">📚</div>
-                <div className="achievement-info">
-                  <h3>Word Master</h3>
-                  <p>Learn 100 new words</p>
-                </div>
-              </div>
-              <div className="achievement-item">
-                <div className="achievement-icon">⭐</div>
-                <div className="achievement-info">
-                  <h3>Quiz Champion</h3>
-                  <p>Score 90%+ on 10 quizzes</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -139,7 +164,19 @@ function Account() {
       <div className="auth-container">
         <div className="auth-form">
           <h1>{isLogin ? 'Welcome Back!' : 'Join LangLeap'}</h1>
-          <p>{isLogin ? 'Sign in to continue your learning journey' : 'Create an account to start learning'}</p>
+          <p>{isLogin ? 'Sign in to continue learning' : 'Create an account to start learning'}</p>
+
+          {error && (
+            <div className="alert alert-error">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="alert alert-success">
+              {success}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             {!isLogin && (
@@ -154,7 +191,8 @@ function Account() {
                     value={formData.name}
                     onChange={handleInputChange}
                     required={!isLogin}
-                    placeholder="Enter your full name"
+                    placeholder="Enter your name"
+                    disabled={formLoading}
                   />
                 </div>
               </div>
@@ -172,6 +210,7 @@ function Account() {
                   onChange={handleInputChange}
                   required
                   placeholder="Enter your email"
+                  disabled={formLoading}
                 />
               </div>
             </div>
@@ -188,6 +227,7 @@ function Account() {
                   onChange={handleInputChange}
                   required
                   placeholder="Enter your password"
+                  disabled={formLoading}
                 />
               </div>
             </div>
@@ -205,13 +245,25 @@ function Account() {
                     onChange={handleInputChange}
                     required={!isLogin}
                     placeholder="Confirm your password"
+                    disabled={formLoading}
                   />
                 </div>
               </div>
             )}
 
-            <button type="submit" className="btn-primary">
-              {isLogin ? 'Sign In' : 'Create Account'}
+            <button 
+              type="submit" 
+              className="btn-primary"
+              disabled={formLoading}
+            >
+              {formLoading ? (
+                <>
+                  <Loader size={16} className="spinner" />
+                  {isLogin ? 'Signing In...' : 'Creating Account...'}
+                </>
+              ) : (
+                isLogin ? 'Sign In' : 'Create Account'
+              )}
             </button>
           </form>
 
@@ -221,29 +273,17 @@ function Account() {
               <button 
                 type="button"
                 className="link-button"
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={switchMode}
+                disabled={formLoading}
               >
                 {isLogin ? 'Sign up' : 'Sign in'}
               </button>
             </p>
           </div>
-        </div>
 
-        <div className="auth-features">
-          <h2>Start Your Language Learning Journey</h2>
-          <div className="feature-list">
-            <div className="feature-item">
-              <BookOpen size={24} />
-              <span>Access thousands of vocabulary words</span>
-            </div>
-            <div className="feature-item">
-              <Brain size={24} />
-              <span>Take interactive quizzes</span>
-            </div>
-            <div className="feature-item">
-              <User size={24} />
-              <span>Track your progress</span>
-            </div>
+          {/* Demo credentials hint */}
+          <div className="demo-hint">
+            <p><strong>Demo:</strong> Use any email and password to test the app</p>
           </div>
         </div>
       </div>
