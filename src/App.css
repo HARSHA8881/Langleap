@@ -3305,7 +3305,7 @@ input:checked + .toggle-slider:before {
   animation: fadeIn 0.5s ease-out;
 }
 
-/* Print Styles */
+
 @media print {
   .navigation,
   .btn-primary,
